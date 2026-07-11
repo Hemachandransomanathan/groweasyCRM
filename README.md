@@ -2,7 +2,7 @@
 
 An AI-powered CSV importer that maps leads from *any* CSV layout — Facebook Lead Ads,
 Google Ads exports, real-estate CRMs, sales reports, hand-built spreadsheets — into
-GrowEasy's fixed CRM schema, using Claude for the field mapping.
+GrowEasy's fixed CRM schema, using an LLM (via Groq) for the field mapping.
 
 Built for the GrowEasy Software Developer assignment.
 
@@ -12,7 +12,7 @@ Built for the GrowEasy Software Developer assignment.
 |----------|------|
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS, PapaParse |
 | Backend  | Node.js, Express, Multer, csv-parse |
-| AI       | Claude (Anthropic API), batched extraction |
+| AI       | Groq API (`openai/gpt-oss-120b`), batched extraction |
 
 ## How it works
 
@@ -21,7 +21,7 @@ Built for the GrowEasy Software Developer assignment.
    sticky-header, scrollable table (first 50 rows). No AI calls happen here.
 3. **Confirm** — on click, the raw file is uploaded to `POST /api/extract`.
 4. **AI Mapping** — the backend parses the CSV server-side, splits rows into
-   batches (default 25 rows/batch), and sends each batch to Claude concurrently
+   batches (default 25 rows/batch), and sends each batch to Groq concurrently
    (default 3 batches at once) with a system prompt describing the GrowEasy CRM
    schema, the allowed enum values, and the field-mapping rules from the
    assignment (multi-email/phone handling, note consolidation, skip rule, etc).
@@ -35,7 +35,7 @@ Built for the GrowEasy Software Developer assignment.
   to keep latency and cost reasonable, and batches run with bounded concurrency
   so a 1,000-row file doesn't fire 1,000 sequential requests. Each batch is
   independently retried with exponential backoff (`AI_MAX_RETRIES`, default 3)
-  if Claude returns malformed JSON or the request fails — a single failed batch
+  if Groq returns malformed JSON or the request fails — a single failed batch
   doesn't take down the whole import, it's reported in `failedBatches` instead.
 - **Server-side validation, not blind trust** — the AI is instructed to only use
   allowed `crm_status`/`data_source` enum values, but the backend *also*
@@ -59,7 +59,7 @@ groweasy-csv-importer/
 │   │   │   └── health.js         # GET /api/health
 │   │   ├── services/
 │   │   │   ├── csvParser.js      # CSV -> row objects (source-agnostic)
-│   │   │   └── aiExtractor.js    # Batching, Claude calls, retries
+│   │   │   └── aiExtractor.js    # Batching, Groq calls, retries
 │   │   ├── middleware/
 │   │   │   ├── upload.js         # Multer config (memory storage, 5MB limit)
 │   │   │   └── errorHandler.js   # Central error + 404 handling
@@ -94,7 +94,7 @@ groweasy-csv-importer/
 
 ### Prerequisites
 - Node.js 18+
-- An [Anthropic API key](https://console.anthropic.com/)
+- A [Groq API key](https://console.groq.com/keys)
 
 ### 1. Backend
 
@@ -102,7 +102,7 @@ groweasy-csv-importer/
 cd backend
 npm install
 cp .env.example .env
-# edit .env and set ANTHROPIC_API_KEY
+# edit .env and set GROQ_API_KEY
 npm run dev        # starts on http://localhost:4000
 ```
 
@@ -127,7 +127,7 @@ any CSV) to try it end to end.
 ### 3. Docker (optional)
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-xxxx docker compose up --build
+GROQ_API_KEY=gsk_xxxx docker compose up --build
 ```
 Frontend on `:3000`, backend on `:4000`.
 
@@ -139,9 +139,9 @@ Frontend on `:3000`, backend on `:4000`.
 |---|---|---|
 | `PORT` | `4000` | |
 | `FRONTEND_ORIGIN` | `http://localhost:3000` | CORS allow-list |
-| `ANTHROPIC_API_KEY` | — | required |
-| `CLAUDE_MODEL` | `claude-sonnet-4-6` | |
-| `AI_BATCH_SIZE` | `25` | rows per Claude request |
+| `GROQ_API_KEY` | — | required |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | |
+| `AI_BATCH_SIZE` | `25` | rows per Groq request |
 | `AI_CONCURRENCY` | `3` | concurrent batch requests |
 | `AI_MAX_RETRIES` | `3` | retries per failed batch |
 | `MAX_FILE_SIZE_MB` | `5` | upload limit |
@@ -180,7 +180,7 @@ No platform-specific config is bundled, but the app is deploy-ready as-is:
 - **Frontend**: any Next.js host (Vercel, etc.) — set `NEXT_PUBLIC_API_URL` to the
   deployed backend URL.
 - **Backend**: any Node host (Railway, Render, Fly.io, etc.) — set
-  `ANTHROPIC_API_KEY` and `FRONTEND_ORIGIN` (your deployed frontend URL) as env vars.
+  `GROQ_API_KEY` and `FRONTEND_ORIGIN` (your deployed frontend URL) as env vars.
 - Both `Dockerfile`s and `docker-compose.yml` are included if you'd rather ship containers.
 
 ## Known limitations / next steps
