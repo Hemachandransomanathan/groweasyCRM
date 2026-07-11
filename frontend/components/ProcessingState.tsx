@@ -6,7 +6,7 @@ export default function ProcessingState({ rowCount }: { rowCount: number }) {
         <div className="absolute inset-0 rounded-full border-2 border-t-accent border-r-accent border-b-transparent border-l-transparent animate-spin" />
       </div>
       <div>
-        <p className="font-display text-lg text-ink">Mapping fields with Claude</p>
+        <p className="font-display text-lg text-ink">Mapping fields with GROQ</p>
         <p className="text-sm text-muted mt-1 font-mono">
           Batching {rowCount} row{rowCount === 1 ? "" : "s"} into the GrowEasy CRM schema…
         </p>
